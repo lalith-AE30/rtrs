@@ -1,16 +1,25 @@
 use crate::vec3::{Point3, Vec3};
 
-#[derive(Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct Ray {
     orig: Point3,
     dir: Vec3,
+}
+
+impl Default for Ray {
+    fn default() -> Self {
+        Self {
+            orig: Default::default(),
+            dir: Vec3::new(0.0, 0.0, 1.0),
+        }
+    }
 }
 
 impl Ray {
     pub fn new(origin: &Point3, direction: &Vec3) -> Self {
         Self {
             orig: *origin,
-            dir: *direction
+            dir: *direction,
         }
     }
 

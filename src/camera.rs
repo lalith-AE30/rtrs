@@ -4,25 +4,30 @@ use crate::{
     hittable::{HitRecord, Hittable},
     image::ImageInfo,
     ray::Ray,
-    vec3::{unit_vector, Point3, Vec3},
+    vec3::{cross, unit_vector, Point3, Vec3},
 };
 use derive_builder::Builder;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::io::{Error, Write};
 
 #[derive(Default, Debug, Clone, Copy, Builder)]
-#[builder(build_fn(skip))]
-#[builder(setter(skip))]
+#[builder(build_fn(private, name = "try_build"), setter(skip))]
 pub struct Camera {
-    #[builder(setter)]
-    pub image_info: ImageInfo,
-    #[builder(setter)]
-    pub samples_per_pixel: u32,
-    #[builder(setter)]
+    #[builder(setter, default)]
+    image_info: ImageInfo,
+    #[builder(setter, default = "64")]
+    samples_per_pixel: u32,
+    #[builder(setter, default = "8")]
     pub max_depth: u32,
-    #[builder(setter)]
-    pub fov: f64,
-    center: Point3,
+    #[builder(setter, default = "90.0")]
+    fov: f64,
+    #[builder(setter, default)]
+    view_ray: Ray,
+    #[builder(setter, default = "Vec3::new(0.0, 1.0, 0.0)")]
+    vup: Vec3,
+    u: Vec3,
+    v: Vec3,
+    w: Vec3,
     pixel00_loc: Point3,
     pixel_delta_u: Vec3,
     pixel_delta_v: Vec3,
@@ -32,11 +37,7 @@ pub struct Camera {
 #[allow(dead_code)]
 impl CameraBuilder {
     pub fn build(&self) -> Result<Camera, CameraBuilderError> {
-        let mut obj = Camera::default();
-        obj.image_info = Clone::clone(self.image_info.as_ref().unwrap_or(&ImageInfo::default()));
-        obj.samples_per_pixel = Clone::clone(self.samples_per_pixel.as_ref().unwrap_or(&100));
-        obj.max_depth = Clone::clone(self.max_depth.as_ref().unwrap_or(&8));
-        obj.fov = Clone::clone(self.fov.as_ref().unwrap_or(&90.0));
+        let mut obj = self.try_build()?;
 
         obj.initialize(obj.image_info, obj.samples_per_pixel, obj.fov);
 
@@ -51,17 +52,19 @@ impl Camera {
         self.pixel_samples_scale = 1.0 / samples_per_pixel as f64;
 
         // Camera parameter
-        let focal_length = 1.0;
+        let ray_dir = self.view_ray.origin() - self.view_ray.direction();
+        let focal_length = ray_dir.length();
         let theta = degrees_to_radians(fov);
         let h = (theta / 2.0).tan();
         let viewport_height = 2.0 * h * focal_length;
         let viewport_width = viewport_height * (img.image_width as f64 / img.image_height as f64);
         let camera_center = Point3::new(0.0, 0.0, 0.0);
 
-        let (viewport_u, viewport_v) = (
-            Vec3::new(viewport_width, 0.0, 0.0),
-            Vec3::new(0.0, -viewport_height, 0.0),
-        );
+        self.w = unit_vector(&ray_dir);
+        self.u = unit_vector(&cross(&self.vup, &self.w));
+        self.v = cross(&self.w, &self.u);
+
+        let (viewport_u, viewport_v) = (viewport_width * self.u, viewport_height * -self.v);
 
         (self.pixel_delta_u, self.pixel_delta_v) = (
             viewport_u / img.image_width as f64,
@@ -69,7 +72,7 @@ impl Camera {
         );
 
         let viewport_upper_left =
-            camera_center - Vec3::new(0.0, 0.0, focal_length) - viewport_u / 2.0 - viewport_v / 2.0;
+            camera_center - focal_length * self.w - viewport_u / 2.0 - viewport_v / 2.0;
         self.pixel00_loc = viewport_upper_left + 0.5 * (self.pixel_delta_u + self.pixel_delta_v);
     }
 
@@ -116,7 +119,7 @@ impl Camera {
             + ((i + offset.x()) * self.pixel_delta_u)
             + ((j + offset.y()) * self.pixel_delta_v);
 
-        let ray_origin = self.center;
+        let ray_origin = self.view_ray.origin();
         let ray_direction = pixel_sample - ray_origin;
 
         Ray::new(&ray_origin, &ray_direction)

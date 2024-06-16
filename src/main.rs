@@ -2,10 +2,10 @@ use rtrs::{
     camera::CameraBuilder,
     color::Color,
     hittable_list::HittableList,
-    image::ImageInfo,
     material::{Dielectric, Lambertian, Metal},
+    ray::Ray,
     sphere::Sphere,
-    vec3::Point3,
+    vec3::{Point3, Vec3},
 };
 use std::{fs::File, io::BufWriter, sync::Arc};
 
@@ -53,9 +53,7 @@ fn main() {
     )));
 
     let cam = CameraBuilder::default()
-        .image_info(ImageInfo::from_dim(1280, 720))
-        .samples_per_pixel(100)
-        .max_depth(32)
+        .view_ray(Ray::new(&Vec3::default(), &Vec3::new(0.0, 0.0, -1.0)))
         .build()
         .unwrap();
 
