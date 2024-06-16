@@ -23,7 +23,7 @@ pub struct Camera {
     fov: f64,
     #[builder(setter, default)]
     view_ray: Ray,
-    #[builder(setter, default = "Vec3::new(0.0, 1.0, 0.0)")]
+    #[builder(setter, default = "Vec3(0.0, 1.0, 0.0)")]
     vup: Vec3,
     u: Vec3,
     v: Vec3,
@@ -58,7 +58,7 @@ impl Camera {
         let h = (theta / 2.0).tan();
         let viewport_height = 2.0 * h * focal_length;
         let viewport_width = viewport_height * (img.image_width as f64 / img.image_height as f64);
-        let camera_center = Point3::new(0.0, 0.0, 0.0);
+        let camera_center = Point3(0.0, 0.0, 0.0);
 
         self.w = unit_vector(&ray_dir);
         self.u = unit_vector(&cross(&self.vup, &self.w));
@@ -110,7 +110,7 @@ impl Camera {
     }
 
     fn sample_square() -> Vec3 {
-        Vec3::new(fastrand::f64() - 0.5, fastrand::f64() - 0.5, 0.0)
+        Vec3(fastrand::f64() - 0.5, fastrand::f64() - 0.5, 0.0)
     }
 
     fn get_ray(&self, i: f64, j: f64) -> Ray {
@@ -146,6 +146,6 @@ impl Camera {
 
         let unit_direction = unit_vector(r.direction());
         let a = 0.5 * (unit_direction.y() + 1.0);
-        (1.0 - a) * Color::new(1.0, 1.0, 1.0) + a * Color::new(0.5, 0.7, 1.0)
+        (1.0 - a) * Color(1.0, 1.0, 1.0) + a * Color(0.5, 0.7, 1.0)
     }
 }

@@ -3,27 +3,36 @@ use std::ops::{Add, AddAssign, Div, Mul, Neg, RangeInclusive, Sub, SubAssign};
 use forward_ref::{forward_ref_binop, forward_ref_op_assign, forward_ref_unop};
 
 #[derive(Default, Debug, Copy, Clone)]
-pub struct Vec3 {
-    pub e: [f64; 3],
-}
+pub struct Vec3(pub f64, pub f64, pub f64);
 
 pub type Point3 = Vec3;
+#[allow(non_snake_case)]
+pub fn Point3(x: f64, y: f64, z: f64) -> Point3 {
+    Vec3(x, y, z)
+}
+
+impl From<Vec3> for (f64, f64, f64) {
+    fn from(value: Vec3) -> Self {
+        (value.0, value.1, value.2)
+    }
+}
+impl From<&Vec3> for (f64, f64, f64) {
+    fn from(value: &Vec3) -> Self {
+        (value.0, value.1, value.2)
+    }
+}
 
 impl Vec3 {
-    pub fn new(e0: f64, e1: f64, e2: f64) -> Self {
-        Self { e: [e0, e1, e2] }
-    }
-
     pub const fn x(&self) -> f64 {
-        self.e[0]
+        self.0
     }
 
     pub const fn y(&self) -> f64 {
-        self.e[1]
+        self.1
     }
 
     pub const fn z(&self) -> f64 {
-        self.e[2]
+        self.2
     }
 
     pub fn length(&self) -> f64 {
@@ -31,33 +40,31 @@ impl Vec3 {
     }
 
     pub fn length_squared(&self) -> f64 {
-        self.e[0] * self.e[0] + self.e[1] * self.e[1] + self.e[2] * self.e[2]
+        dot(self, self)
     }
 
     pub fn near_zero(&self) -> bool {
         let s = 1e-8;
-        return self.e.iter().all(|e| e.abs() < s);
+        return [self.0, self.1, self.2].iter().all(|e| e.abs() < s);
     }
 
     pub fn random(interval: Option<RangeInclusive<f64>>) -> Self {
         match interval {
-            Some(int) => Self::new(
+            Some(int) => Self(
                 int.start() + ((int.end() - int.start()) * fastrand::f64()),
                 int.start() + ((int.end() - int.start()) * fastrand::f64()),
                 int.start() + ((int.end() - int.start()) * fastrand::f64()),
             ),
-            None => Self::new(fastrand::f64(), fastrand::f64(), fastrand::f64()),
+            None => Self(fastrand::f64(), fastrand::f64(), fastrand::f64()),
         }
     }
 }
 
 impl Neg for Vec3 {
-    type Output = Vec3;
+    type Output = Self;
 
     fn neg(self) -> Self::Output {
-        Vec3 {
-            e: [-self.e[0], -self.e[1], -self.e[2]],
-        }
+        Self(-self.0, -self.1, -self.2)
     }
 }
 
@@ -65,20 +72,14 @@ impl Add for Vec3 {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            e: [
-                self.e[0] + rhs.e[0],
-                self.e[1] + rhs.e[1],
-                self.e[2] + rhs.e[2],
-            ],
-        }
+        Self(self.0 + rhs.0, self.1 + rhs.1, self.2 + rhs.2)
     }
 }
 impl AddAssign for Vec3 {
     fn add_assign(&mut self, rhs: Self) {
-        self.e[0] += rhs.e[0];
-        self.e[1] += rhs.e[1];
-        self.e[2] += rhs.e[2];
+        self.0 += rhs.0;
+        self.1 += rhs.1;
+        self.2 += rhs.2;
     }
 }
 
@@ -91,9 +92,7 @@ impl Sub for Vec3 {
 }
 impl SubAssign for Vec3 {
     fn sub_assign(&mut self, rhs: Self) {
-        self.e[0] -= rhs.e[0];
-        self.e[1] -= rhs.e[1];
-        self.e[2] -= rhs.e[2];
+        *self += -rhs;
     }
 }
 
@@ -101,9 +100,7 @@ impl Mul<f64> for Vec3 {
     type Output = Vec3;
 
     fn mul(self, rhs: f64) -> Self::Output {
-        Vec3 {
-            e: [rhs * self.e[0], rhs * self.e[1], rhs * self.e[2]],
-        }
+        Self(rhs * self.0, rhs * self.1, rhs * self.2)
     }
 }
 impl Mul<Vec3> for f64 {
@@ -132,17 +129,15 @@ forward_ref_op_assign!(impl AddAssign, add_assign for Vec3, Vec3);
 forward_ref_op_assign!(impl SubAssign, sub_assign for Vec3, Vec3);
 
 pub fn dot(u: &Vec3, v: &Vec3) -> f64 {
-    u.e[0] * v.e[0] + u.e[1] * v.e[1] + u.e[2] * v.e[2]
+    u.x() * v.x() + u.y() * v.y() + u.z() * v.z()
 }
 
 pub fn cross(u: &Vec3, v: &Vec3) -> Vec3 {
-    Vec3 {
-        e: [
-            u.e[1] * v.e[2] - u.e[2] * v.e[1],
-            u.e[2] * v.e[0] - u.e[0] * v.e[2],
-            u.e[0] * v.e[1] - u.e[1] * v.e[0],
-        ],
-    }
+    Vec3(
+        u.y() * v.z() - u.z() * v.y(),
+        u.z() * v.x() - u.x() * v.z(),
+        u.x() * v.y() - u.y() * v.x(),
+    )
 }
 
 #[inline]

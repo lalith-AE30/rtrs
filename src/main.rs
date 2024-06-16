@@ -18,42 +18,42 @@ fn main() {
 
     let mut world = HittableList::default();
 
-    let material_ground = Arc::new(Lambertian::new(&Color::new(0.8, 0.8, 0.0)));
-    let material_center = Arc::new(Lambertian::new(&Color::new(0.1, 0.2, 0.5)));
+    let material_ground = Arc::new(Lambertian::new(&Color(0.8, 0.8, 0.0)));
+    let material_center = Arc::new(Lambertian::new(&Color(0.1, 0.2,0.5)));
 
-    let material_right = Arc::new(Metal::new(&Color::new(0.8, 0.6, 0.2), Some(0.1)));
+    let material_right = Arc::new(Metal::new(&Color(0.8, 0.6, 0.2), Some(0.1)));
 
     let material_left = Arc::new(Dielectric::new(1.5));
     let material_bubble = Arc::new(Dielectric::new(1.0 / 1.5));
 
     world.add(Arc::new(Sphere::new(
-        &Point3::new(0.0, -100.5, -1.0),
+        &Point3(0.0, -100.5, -1.0),
         100.0,
         material_ground,
     )));
     world.add(Arc::new(Sphere::new(
-        &Point3::new(0.0, 0.0, -1.2),
+        &Point3(0.0, 0.0, -1.2),
         0.5,
         material_center,
     )));
     world.add(Arc::new(Sphere::new(
-        &Point3::new(-1.0, 0.0, -1.0),
+        &Point3(-1.0, 0.0, -1.0),
         0.5,
         material_left,
     )));
     world.add(Arc::new(Sphere::new(
-        &Point3::new(-1.0, 0.0, -1.0),
+        &Point3(-1.0, 0.0, -1.0),
         0.4,
         material_bubble,
     )));
     world.add(Arc::new(Sphere::new(
-        &Point3::new(1.0, 0.0, -1.0),
+        &Point3(1.0, 0.0, -1.0),
         0.5,
         material_right,
     )));
 
     let cam = CameraBuilder::default()
-        .view_ray(Ray::new(&Vec3::default(), &Vec3::new(0.0, 0.0, -1.0)))
+        .view_ray(Ray::new(&Vec3::default(), &Vec3(0.0, 0.0, -1.0)))
         .build()
         .unwrap();
 

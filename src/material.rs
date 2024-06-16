@@ -104,7 +104,7 @@ impl Material for Dielectric {
         attenuation: &mut Color,
         scattered: &mut Ray,
     ) -> bool {
-        *attenuation = Color::new(1.0, 1.0, 1.0);
+        *attenuation = Color(1.0, 1.0, 1.0);
         let ri = if rec.front_face {
             1.0 / self.refractive_index
         } else {
