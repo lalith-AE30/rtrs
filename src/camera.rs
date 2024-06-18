@@ -11,17 +11,21 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::io::{Error, Write};
 
 #[derive(Default, Debug, Clone, Copy, Builder)]
-#[builder(build_fn(private, name = "try_build"), setter(skip))]
+#[builder(
+    custom_constructor,
+    build_fn(private, name = "try_build"),
+    setter(skip)
+)]
 pub struct Camera {
-    #[builder(setter, default)]
+    #[builder(setter, default = "8")]
+    pub max_depth: u32,
+    #[builder(setter)]
     image_info: ImageInfo,
     #[builder(setter, default = "64")]
     samples_per_pixel: u32,
-    #[builder(setter, default = "8")]
-    pub max_depth: u32,
     #[builder(setter, default = "90.0")]
     fov: f64,
-    #[builder(setter, default)]
+    #[builder(setter)]
     view_ray: Ray,
     #[builder(setter, default = "Vec3(0.0, 1.0, 0.0)")]
     vup: Vec3,
@@ -36,17 +40,26 @@ pub struct Camera {
 
 #[allow(dead_code)]
 impl CameraBuilder {
-    pub fn build(&self) -> Result<Camera, CameraBuilderError> {
-        let mut obj = self.try_build()?;
+    pub fn new(image_info: ImageInfo, view_ray: Ray) -> Self {
+        Self {
+            image_info: Some(image_info),
+            view_ray: Some(view_ray),
+            ..Self::create_empty()
+        }
+    }
 
+    pub fn build(&self) -> Camera {
+        let mut obj = self.try_build().expect("All fields initialized in ctor");
         obj.initialize(obj.image_info, obj.samples_per_pixel, obj.fov);
-
-        Ok(obj)
+        obj
     }
 }
 
 impl Camera {
     pub fn initialize(&mut self, image_info: ImageInfo, samples_per_pixel: u32, fov: f64) {
+        self.image_info = image_info;
+        self.samples_per_pixel = samples_per_pixel;
+        self.fov = fov;
         let img = image_info;
 
         self.pixel_samples_scale = 1.0 / samples_per_pixel as f64;
@@ -58,7 +71,6 @@ impl Camera {
         let h = (theta / 2.0).tan();
         let viewport_height = 2.0 * h * focal_length;
         let viewport_width = viewport_height * (img.image_width as f64 / img.image_height as f64);
-        let camera_center = Point3(0.0, 0.0, 0.0);
 
         self.w = unit_vector(&ray_dir);
         self.u = unit_vector(&cross(&self.vup, &self.w));
@@ -72,7 +84,7 @@ impl Camera {
         );
 
         let viewport_upper_left =
-            camera_center - focal_length * self.w - viewport_u / 2.0 - viewport_v / 2.0;
+            self.view_ray.origin() - focal_length * self.w - viewport_u / 2.0 - viewport_v / 2.0;
         self.pixel00_loc = viewport_upper_left + 0.5 * (self.pixel_delta_u + self.pixel_delta_v);
     }
 

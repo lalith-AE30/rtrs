@@ -1,6 +1,5 @@
-use std::sync::Arc;
-
 use crate::hittable::{HitRecord, Hittable};
+use std::sync::Arc;
 
 #[derive(Default)]
 pub struct HittableList {

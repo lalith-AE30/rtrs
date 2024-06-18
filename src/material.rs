@@ -17,13 +17,7 @@ pub trait Material {
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct Lambertian {
-    albedo: Color,
-}
-
-impl Lambertian {
-    pub fn new(albedo: &Color) -> Self {
-        Self { albedo: *albedo }
-    }
+    pub albedo: Color,
 }
 
 impl Material for Lambertian {
@@ -44,20 +38,17 @@ impl Material for Lambertian {
     }
 }
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Metal {
-    albedo: Color,
-    fuzz: Option<f64>,
+    pub albedo: Color,
+    pub fuzz: Option<f64>,
 }
 
-impl Metal {
-    pub fn new(albedo: &Color, fuzz: Option<f64>) -> Self {
-        if fuzz != None {
-            assert!(fuzz.unwrap() <= 1.0, "Fuzz cannot be greater than 1");
-        }
+impl Default for Metal {
+    fn default() -> Self {
         Self {
-            albedo: *albedo,
-            fuzz,
+            albedo: Color(0.5, 0.5, 0.5),
+            fuzz: None,
         }
     }
 }
@@ -71,7 +62,7 @@ impl Material for Metal {
         scattered: &mut Ray,
     ) -> bool {
         let fuzz_vector = match self.fuzz {
-            Some(fuzz) => fuzz * random_unit_vector(),
+            Some(fuzz) => fuzz.clamp(0.0, 1.0) * random_unit_vector(),
             None => Vec3::default(),
         };
         let reflected = unit_vector(&reflect(r_in.direction(), &rec.normal)) + fuzz_vector;
@@ -82,17 +73,23 @@ impl Material for Metal {
 }
 
 pub struct Dielectric {
-    refractive_index: f64,
+    pub refractive_index: f64,
+    pub albedo: Color,
 }
 
 impl Dielectric {
-    pub fn new(refractive_index: f64) -> Self {
-        Self { refractive_index }
-    }
-
     fn reflectance(cosine: f64, refractive_index: f64) -> f64 {
         let r0 = ((1.0 - refractive_index) / (1.0 + refractive_index)).powi(2);
         r0 + (1.0 - r0) * (1.0 - cosine).powi(5)
+    }
+}
+
+impl Default for Dielectric {
+    fn default() -> Self {
+        Self {
+            refractive_index: 1.0,
+            albedo: Vec3(1.0, 1.0, 1.0),
+        }
     }
 }
 
@@ -104,7 +101,6 @@ impl Material for Dielectric {
         attenuation: &mut Color,
         scattered: &mut Ray,
     ) -> bool {
-        *attenuation = Color(1.0, 1.0, 1.0);
         let ri = if rec.front_face {
             1.0 / self.refractive_index
         } else {
@@ -118,8 +114,14 @@ impl Material for Dielectric {
         let cannot_refract = ri * sin_theta > 1.0;
         let direction =
             if cannot_refract || Dielectric::reflectance(cos_theta, ri) > fastrand::f64() {
+                *attenuation = Color(1.0, 1.0, 1.0);
                 reflect(&unit_direction, &rec.normal)
             } else {
+                *attenuation = if rec.front_face {
+                    self.albedo
+                } else {
+                    Color(1.0, 1.0, 1.0)
+                };
                 refract(&unit_direction, &rec.normal, ri)
             };
 

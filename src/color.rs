@@ -1,4 +1,4 @@
-use crate::{vec3::Vec3, ClampExt};
+use crate::vec3::Vec3;
 use std::{
     io::{Error, Write},
     ops::Mul,
@@ -30,11 +30,11 @@ pub fn write_color(file: &mut dyn Write, pixel_color: &Color) -> Result<(), Erro
 
     let (r, g, b) = (linear_to_gamma(r), linear_to_gamma(g), linear_to_gamma(b));
 
-    let intensity = 0.0..=0.999;
+    let (intensity_min, intensity_max) = (0.0, 0.999);
     let (rbyte, gbyte, bbyte) = (
-        (256.0 * intensity.clamp(r)) as i32,
-        (256.0 * intensity.clamp(g)) as i32,
-        (256.0 * intensity.clamp(b)) as i32,
+        (256.0 * r.clamp(intensity_min, intensity_max)) as i32,
+        (256.0 * g.clamp(intensity_min, intensity_max)) as i32,
+        (256.0 * b.clamp(intensity_min, intensity_max)) as i32,
     );
 
     file.write(format!("{} {} {}\n", rbyte, gbyte, bbyte).as_bytes())?;

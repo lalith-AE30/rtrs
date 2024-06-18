@@ -1,8 +1,9 @@
-use std::{ops::RangeInclusive, sync::Arc};
-
 use crate::{
-    material::Material, ray::Ray, vec3::{dot, Point3, Vec3}
+    material::Material,
+    ray::Ray,
+    vec3::{dot, Point3, Vec3},
 };
+use std::{ops::RangeInclusive, sync::Arc};
 
 #[derive(Default, Clone)]
 pub struct HitRecord {

@@ -1,6 +1,5 @@
-use std::ops::{Add, AddAssign, Div, Mul, Neg, RangeInclusive, Sub, SubAssign};
-
 use forward_ref::{forward_ref_binop, forward_ref_op_assign, forward_ref_unop};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, RangeInclusive, Sub, SubAssign};
 
 #[derive(Default, Debug, Copy, Clone)]
 pub struct Vec3(pub f64, pub f64, pub f64);
@@ -10,7 +9,6 @@ pub type Point3 = Vec3;
 pub fn Point3(x: f64, y: f64, z: f64) -> Point3 {
     Vec3(x, y, z)
 }
-
 impl From<Vec3> for (f64, f64, f64) {
     fn from(value: Vec3) -> Self {
         (value.0, value.1, value.2)

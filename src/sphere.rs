@@ -1,10 +1,9 @@
-use std::sync::Arc;
-
 use crate::{
     hittable::{HitRecord, Hittable},
     material::Material,
     vec3::{dot, Point3},
 };
+use std::sync::Arc;
 
 pub struct Sphere {
     center: Point3,
