@@ -1,5 +1,5 @@
 use crate::{
-    color::Color,
+    color::{self, Color},
     degrees_to_radians,
     hittable::{HitRecord, Hittable},
     image::ImageInfo,
@@ -112,7 +112,7 @@ impl Camera {
                     let r = self.get_ray(i, j);
                     pixel_color += Camera::ray_color(&r, max_depth, world);
                 }
-                crate::color::write_color(file, &(self.pixel_samples_scale * pixel_color))?;
+                color::write_color(file, &(self.pixel_samples_scale * pixel_color))?;
             }
             bar.inc(1);
         }

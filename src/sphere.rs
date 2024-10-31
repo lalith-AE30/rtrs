@@ -12,13 +12,13 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn new(center: &Point3, radius: f64, mat: Arc<dyn Material>) -> Self {
+    pub fn new(center: &Point3, radius: f64, mat: Arc<dyn Material>) -> Arc<Self> {
         assert!(radius >= 0.0, "Radius must be positive");
-        Self {
+        Arc::new(Self {
             center: *center,
             radius,
             mat,
-        }
+        })
     }
 }
 

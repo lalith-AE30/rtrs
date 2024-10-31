@@ -7,6 +7,7 @@ pub mod material;
 pub mod ray;
 pub mod sphere;
 pub mod vec3;
+pub mod scenes;
 
 const PI: f64 = 3.1415926535897932385;
 
