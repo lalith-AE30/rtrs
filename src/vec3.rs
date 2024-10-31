@@ -143,6 +143,19 @@ pub fn unit_vector(v: &Vec3) -> Vec3 {
     v / v.length()
 }
 
+pub fn random_int_unit_disk() -> Vec3 {
+    loop {
+        let p = Vec3(
+            fastrand::f64() * 2.0 - 1.0,
+            fastrand::f64() * 2.0 - 1.0,
+            0.0,
+        );
+        if p.length_squared() < 1.0 {
+            return p;
+        }
+    }
+}
+
 pub fn random_in_unit_sphere() -> Vec3 {
     loop {
         let p = Vec3::random(Some(-1.0..=1.0));

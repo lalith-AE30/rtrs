@@ -4,7 +4,7 @@ use crate::{
     hittable::{HitRecord, Hittable},
     image::ImageInfo,
     ray::Ray,
-    vec3::{cross, unit_vector, Point3, Vec3},
+    vec3::{cross, random_int_unit_disk, unit_vector, Point3, Vec3},
 };
 use derive_builder::Builder;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -26,9 +26,15 @@ pub struct Camera {
     #[builder(setter, default = "90.0")]
     fov: f64,
     #[builder(setter)]
-    view_ray: Ray,
+    look_from: Point3,
+    #[builder(setter)]
+    look_at: Point3,
     #[builder(setter, default = "Vec3(0.0, 1.0, 0.0)")]
     vup: Vec3,
+    #[builder(setter, default = "0.0")]
+    defocus_angle: f64,
+    #[builder(setter, default = "10.0")]
+    focus_dist: f64,
     u: Vec3,
     v: Vec3,
     w: Vec3,
@@ -36,20 +42,24 @@ pub struct Camera {
     pixel_delta_u: Vec3,
     pixel_delta_v: Vec3,
     pixel_samples_scale: f64,
+    defocus_disk_u: Vec3,
+    defocus_disk_v: Vec3,
 }
 
-#[allow(dead_code)]
 impl CameraBuilder {
-    pub fn new(image_info: ImageInfo, view_ray: Ray) -> Self {
+    pub fn new(image_info: &ImageInfo, look_from: &Point3, look_at: &Point3) -> Self {
         Self {
-            image_info: Some(image_info),
-            view_ray: Some(view_ray),
+            image_info: Some(*image_info),
+            look_from: Some(*look_from),
+            look_at: Some(*look_at),
             ..Self::create_empty()
         }
     }
 
     pub fn build(&self) -> Camera {
-        let mut obj = self.try_build().expect("All fields initialized in ctor");
+        let mut obj = self
+            .try_build()
+            .expect("All required fields initialized in constructorF");
         obj.initialize(obj.image_info, obj.samples_per_pixel, obj.fov);
         obj
     }
@@ -60,17 +70,16 @@ impl Camera {
         self.image_info = image_info;
         self.samples_per_pixel = samples_per_pixel;
         self.fov = fov;
-        let img = image_info;
 
         self.pixel_samples_scale = 1.0 / samples_per_pixel as f64;
 
         // Camera parameter
-        let ray_dir = self.view_ray.origin() - self.view_ray.direction();
-        let focal_length = ray_dir.length();
+        let ray_dir = self.look_from - self.look_at;
         let theta = degrees_to_radians(fov);
         let h = (theta / 2.0).tan();
-        let viewport_height = 2.0 * h * focal_length;
-        let viewport_width = viewport_height * (img.image_width as f64 / img.image_height as f64);
+        let viewport_height = 2.0 * h * self.focus_dist;
+        let viewport_width =
+            viewport_height * (image_info.image_width as f64 / image_info.image_height as f64);
 
         self.w = unit_vector(&ray_dir);
         self.u = unit_vector(&cross(&self.vup, &self.w));
@@ -79,13 +88,17 @@ impl Camera {
         let (viewport_u, viewport_v) = (viewport_width * self.u, viewport_height * -self.v);
 
         (self.pixel_delta_u, self.pixel_delta_v) = (
-            viewport_u / img.image_width as f64,
-            viewport_v / img.image_height as f64,
+            viewport_u / image_info.image_width as f64,
+            viewport_v / image_info.image_height as f64,
         );
 
         let viewport_upper_left =
-            self.view_ray.origin() - focal_length * self.w - viewport_u / 2.0 - viewport_v / 2.0;
+            self.look_from - self.focus_dist * self.w - viewport_u / 2.0 - viewport_v / 2.0;
         self.pixel00_loc = viewport_upper_left + 0.5 * (self.pixel_delta_u + self.pixel_delta_v);
+
+        let defocus_radius = self.focus_dist * degrees_to_radians(self.defocus_angle / 2.0).tan();
+        self.defocus_disk_u = defocus_radius * self.u;
+        self.defocus_disk_v = defocus_radius * self.v;
     }
 
     pub fn render(&self, file: &mut dyn Write, world: &dyn Hittable) -> Result<(), Error> {
@@ -125,13 +138,22 @@ impl Camera {
         Vec3(fastrand::f64() - 0.5, fastrand::f64() - 0.5, 0.0)
     }
 
+    fn defocus_disk_sample(&self) -> Point3 {
+        let p = random_int_unit_disk();
+        self.look_from + p.x() * self.defocus_disk_u + p.y() * self.defocus_disk_v
+    }
+
     fn get_ray(&self, i: f64, j: f64) -> Ray {
         let offset = Camera::sample_square();
         let pixel_sample = self.pixel00_loc
             + ((i + offset.x()) * self.pixel_delta_u)
             + ((j + offset.y()) * self.pixel_delta_v);
 
-        let ray_origin = self.view_ray.origin();
+        let ray_origin = if self.defocus_angle > 0.0 {
+            self.defocus_disk_sample()
+        } else {
+            self.look_from
+        };
         let ray_direction = pixel_sample - ray_origin;
 
         Ray::new(&ray_origin, &ray_direction)
