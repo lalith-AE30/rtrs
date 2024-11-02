@@ -37,7 +37,7 @@ pub fn write_color(file: &mut dyn Write, pixel_color: &Color) -> Result<(), Erro
         (256.0 * b.clamp(intensity_min, intensity_max)) as i32,
     );
 
-    file.write(format!("{} {} {}\n", rbyte, gbyte, bbyte).as_bytes())?;
+    file.write_all(format!("{} {} {}\n", rbyte, gbyte, bbyte).as_bytes())?;
 
     Ok(())
 }

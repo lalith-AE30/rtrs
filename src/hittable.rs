@@ -25,6 +25,6 @@ impl HitRecord {
     }
 }
 
-pub trait Hittable {
+pub trait Hittable: Sync {
     fn hit(&self, r: &Ray, interval: RangeInclusive<f64>, rec: &mut HitRecord) -> bool;
 }

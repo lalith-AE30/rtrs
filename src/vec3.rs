@@ -166,15 +166,15 @@ pub fn random_in_unit_sphere() -> Vec3 {
 }
 
 pub fn random_unit_vector() -> Vec3 {
-    return unit_vector(&random_in_unit_sphere());
+    unit_vector(&random_in_unit_sphere())
 }
 
 pub fn random_on_hemisphere(normal: &Vec3) -> Vec3 {
     let on_unit_sphere = random_unit_vector();
     if dot(&on_unit_sphere, normal) > 0.0 {
-        return on_unit_sphere;
+        on_unit_sphere
     } else {
-        return -on_unit_sphere;
+        -on_unit_sphere
     }
 }
 

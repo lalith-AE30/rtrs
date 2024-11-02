@@ -8,7 +8,11 @@ use crate::{
 };
 use derive_builder::Builder;
 use indicatif::{ProgressBar, ProgressStyle};
-use std::io::{Error, Write};
+use std::{
+    io::{Error, Write},
+    sync::Mutex,
+    thread,
+};
 
 #[derive(Default, Debug, Clone, Copy, Builder)]
 #[builder(
@@ -104,9 +108,9 @@ impl Camera {
     pub fn render(&self, file: &mut dyn Write, world: &dyn Hittable) -> Result<(), Error> {
         let (img, samples_per_pixel, max_depth) =
             (self.image_info, self.samples_per_pixel, self.max_depth);
-        file.write(format!("P3\n{} {}\n255\n", img.image_width, img.image_height).as_bytes())?;
+        file.write_all(format!("P3\n{} {}\n255\n", img.image_width, img.image_height).as_bytes())?;
 
-        let bar = {
+        let thread_bar = {
             let style = ProgressStyle::with_template(
                 "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
             )
@@ -117,20 +121,47 @@ impl Camera {
             ibar
         };
 
-        for j in 0..img.image_height {
-            for i in 0..img.image_width {
-                let (i, j) = (i as f64, j as f64);
-                let mut pixel_color = Color::default();
-                for _ in 0..samples_per_pixel {
-                    let r = self.get_ray(i, j);
-                    pixel_color += Camera::ray_color(&r, max_depth, world);
-                }
-                color::write_color(file, &(self.pixel_samples_scale * pixel_color))?;
+        let render_bar = {
+            let style = ProgressStyle::with_template(
+                "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
+            )
+            .unwrap()
+            .progress_chars("#>.");
+            let ibar = ProgressBar::new(img.image_height as u64);
+            ibar.set_style(style);
+            ibar
+        };
+
+        let image = Mutex::new(vec![
+            Vec3::default();
+            (img.image_height * img.image_width) as usize
+        ]);
+
+        thread::scope(|s| {
+            let image = &image;
+            for j in 0..img.image_height {
+                let bar = render_bar.clone();
+                s.spawn(move || {
+                    for i in 0..img.image_width {
+                        let (i, j) = (i as f64, j as f64);
+                        let mut pixel_color = Color::default();
+                        for _ in 0..samples_per_pixel {
+                            let r = self.get_ray(i, j);
+                            pixel_color += Camera::ray_color(&r, max_depth, world);
+                        }
+                        image.lock().unwrap()[j as usize * img.image_width as usize + i as usize] =
+                            pixel_color;
+                    }
+                    bar.inc(1);
+                });
+                thread_bar.inc(1);
             }
-            bar.inc(1);
+        });
+        for pixel_color in image.into_inner().unwrap() {
+            color::write_color(file, &(self.pixel_samples_scale * pixel_color))?;
         }
 
-        bar.finish();
+        render_bar.finish();
         Ok(())
     }
 
@@ -160,7 +191,7 @@ impl Camera {
     }
 
     fn ray_color(r: &Ray, depth: u32, world: &dyn Hittable) -> Color {
-        if depth <= 0 {
+        if depth == 0 {
             return Color::default();
         }
 

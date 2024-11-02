@@ -56,6 +56,6 @@ impl Hittable for Sphere {
         rec.set_face_normal(r, &outward_normal);
         rec.mat = Some(self.mat.clone());
 
-        return true;
+        true
     }
 }
