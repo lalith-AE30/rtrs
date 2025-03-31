@@ -8,11 +8,8 @@ use crate::{
 };
 use derive_builder::Builder;
 use indicatif::{ProgressBar, ProgressStyle};
-use std::{
-    io::{Error, Write},
-    sync::Mutex,
-    thread,
-};
+use rayon::prelude::*;
+use std::io::{Error, Write};
 
 #[derive(Default, Debug, Clone, Copy, Builder)]
 #[builder(
@@ -110,54 +107,39 @@ impl Camera {
             (self.image_info, self.samples_per_pixel, self.max_depth);
         file.write_all(format!("P3\n{} {}\n255\n", img.image_width, img.image_height).as_bytes())?;
 
-        let thread_bar = {
-            let style = ProgressStyle::with_template(
-                "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
-            )
-            .unwrap()
-            .progress_chars("#>.");
-            let ibar = ProgressBar::new(img.image_height as u64);
-            ibar.set_style(style);
-            ibar
-        };
-
         let render_bar = {
             let style = ProgressStyle::with_template(
-                "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
+                "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg} ({per_sec})",
             )
             .unwrap()
             .progress_chars("#>.");
-            let ibar = ProgressBar::new(img.image_height as u64);
-            ibar.set_style(style);
-            ibar
+            let bar = ProgressBar::new(img.image_height as u64);
+            bar.set_style(style);
+            bar
         };
 
-        let image = Mutex::new(vec![
-            Vec3::default();
-            (img.image_height * img.image_width) as usize
-        ]);
+        let mut image: Box<[Vec3]> =
+            vec![Vec3::default(); (img.image_height * img.image_width) as usize].into_boxed_slice();
 
-        thread::scope(|s| {
-            let image = &image;
-            for j in 0..img.image_height {
-                let bar = render_bar.clone();
-                s.spawn(move || {
-                    for i in 0..img.image_width {
-                        let (i, j) = (i as f64, j as f64);
-                        let mut pixel_color = Color::default();
-                        for _ in 0..samples_per_pixel {
+        image
+            .par_chunks_mut(img.image_width as usize)
+            .enumerate()
+            .for_each(|(j, row)| {
+                row.par_iter_mut().enumerate().for_each(|(i, pixel)| {
+                    let (i, j) = (i as f64, j as f64);
+                    let pixel_color = (0..samples_per_pixel)
+                        .into_iter()
+                        .map(|_| {
                             let r = self.get_ray(i, j);
-                            pixel_color += Camera::ray_color(&r, max_depth, world);
-                        }
-                        image.lock().unwrap()[j as usize * img.image_width as usize + i as usize] =
-                            pixel_color;
-                    }
-                    bar.inc(1);
+                            Camera::ray_color(&r, max_depth, world)
+                        })
+                        .reduce(|acc, c| acc + c).unwrap();
+                    *pixel = pixel_color;
                 });
-                thread_bar.inc(1);
-            }
-        });
-        for pixel_color in image.into_inner().unwrap() {
+                render_bar.inc(1);
+            });
+
+        for pixel_color in image {
             color::write_color(file, &(self.pixel_samples_scale * pixel_color))?;
         }
 
