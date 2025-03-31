@@ -25,19 +25,23 @@ fn linear_to_gamma(linear_component: f64) -> f64 {
     0.0
 }
 
-pub fn write_color(file: &mut dyn Write, pixel_color: &Color) -> Result<(), Error> {
+pub fn gamma_correction(pixel_color: &Color) -> (u32, u32, u32) {
     let (r, g, b) = pixel_color.into();
 
     let (r, g, b) = (linear_to_gamma(r), linear_to_gamma(g), linear_to_gamma(b));
 
     let (intensity_min, intensity_max) = (0.0, 0.999);
     let (rbyte, gbyte, bbyte) = (
-        (256.0 * r.clamp(intensity_min, intensity_max)) as i32,
-        (256.0 * g.clamp(intensity_min, intensity_max)) as i32,
-        (256.0 * b.clamp(intensity_min, intensity_max)) as i32,
+        (256.0 * r.clamp(intensity_min, intensity_max)) as u32,
+        (256.0 * g.clamp(intensity_min, intensity_max)) as u32,
+        (256.0 * b.clamp(intensity_min, intensity_max)) as u32,
     );
 
-    file.write_all(format!("{} {} {}\n", rbyte, gbyte, bbyte).as_bytes())?;
+    (rbyte, gbyte, bbyte)
+}
 
+pub fn write_color(file: &mut dyn Write, pixel_color: &Color) -> Result<(), Error> {
+    let (rbyte, gbyte, bbyte) = gamma_correction(pixel_color);
+    file.write_all(format!("{} {} {}\n", rbyte, gbyte, bbyte).as_bytes())?;
     Ok(())
 }

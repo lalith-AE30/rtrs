@@ -7,7 +7,7 @@ use crate::{
     vec3::{cross, random_int_unit_disk, unit_vector, Point3, Vec3},
 };
 use derive_builder::Builder;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::ProgressBar;
 use rayon::prelude::*;
 use std::io::{Error, Write};
 
@@ -21,7 +21,7 @@ pub struct Camera {
     #[builder(setter, default = "8")]
     pub max_depth: u32,
     #[builder(setter)]
-    image_info: ImageInfo,
+    pub image_info: ImageInfo,
     #[builder(setter, default = "64")]
     samples_per_pixel: u32,
     #[builder(setter, default = "90.0")]
@@ -102,21 +102,9 @@ impl Camera {
         self.defocus_disk_v = defocus_radius * self.v;
     }
 
-    pub fn render(&self, file: &mut dyn Write, world: &dyn Hittable) -> Result<(), Error> {
+    pub fn render(&self, world: &dyn Hittable, progress_bar: Option<&ProgressBar>) -> Box<[Vec3]> {
         let (img, samples_per_pixel, max_depth) =
             (self.image_info, self.samples_per_pixel, self.max_depth);
-        file.write_all(format!("P3\n{} {}\n255\n", img.image_width, img.image_height).as_bytes())?;
-
-        let render_bar = {
-            let style = ProgressStyle::with_template(
-                "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg} ({per_sec})",
-            )
-            .unwrap()
-            .progress_chars("#>.");
-            let bar = ProgressBar::new(img.image_height as u64);
-            bar.set_style(style);
-            bar
-        };
 
         let mut image: Box<[Vec3]> =
             vec![Vec3::default(); (img.image_height * img.image_width) as usize].into_boxed_slice();
@@ -133,17 +121,29 @@ impl Camera {
                             let r = self.get_ray(i, j);
                             Camera::ray_color(&r, max_depth, world)
                         })
-                        .reduce(|acc, c| acc + c).unwrap();
+                        .reduce(|acc, c| acc + c)
+                        .unwrap();
                     *pixel = pixel_color;
                 });
-                render_bar.inc(1);
+                match &progress_bar {
+                    Some(bar) => {
+                        bar.inc(1);
+                    }
+                    None => {}
+                }
             });
 
+        image
+    }
+
+    pub fn write_image(&self, file: &mut dyn Write, image: &[Vec3]) -> Result<(), Error> {
+        let img = self.image_info;
+        file.write_all(format!("P3\n{} {}\n255\n", img.image_width, img.image_height).as_bytes())?;
+
         for pixel_color in image {
-            color::write_color(file, &(self.pixel_samples_scale * pixel_color))?;
+            color::write_color(file, &(self.pixel_samples_scale * *pixel_color))?;
         }
 
-        render_bar.finish();
         Ok(())
     }
 
