@@ -19,7 +19,7 @@ fn main() {
     let mut file = BufWriter::new(file);
 
     let world = test_scene();
-    let image_info = ImageInfo::from_aspect(144, 16.0 / 9.0);
+    let image_info = ImageInfo::from_aspect(600, 4.0 / 3.0);
 
     let mut cam = CameraBuilder::new(
         &image_info,
@@ -44,7 +44,7 @@ fn main() {
         bar
     };
 
-    let image = cam.render(&world, Some(&render_bar));
+    let mut image = cam.render(&world, Some(&render_bar));
     render_bar.finish();
 
     let _ = cam.write_image(&mut file, &image);
@@ -86,9 +86,7 @@ fn main() {
                     )
                     .unwrap();
 
-                cam.initialize(ImageInfo::from_dim(width, height), 1, 20.0);
-                let image = cam.render(&world, None);
-
+                cam.render_update(&world, &mut image);
 
                 let mut buffer = surface.buffer_mut().unwrap();
                 for index in 0..(width * height) {

@@ -136,12 +136,35 @@ impl Camera {
         image
     }
 
+    pub fn render_update(&mut self, world: &dyn Hittable, image: &mut Box<[Vec3]>) {
+        let (img, samples_per_pixel, max_depth) =
+            (self.image_info, self.samples_per_pixel, self.max_depth);
+
+        let samples_per_pixel = samples_per_pixel + 1;
+        self.samples_per_pixel = samples_per_pixel;
+        self.pixel_samples_scale = 1.0 / samples_per_pixel as f64;
+
+        image
+            .par_chunks_mut(img.image_width as usize)
+            .enumerate()
+            .for_each(|(j, row)| {
+                row.par_iter_mut().enumerate().for_each(|(i, pixel)| {
+                    let (i, j) = (i as f64, j as f64);
+                    let pixel_color = {
+                        let r = self.get_ray(i, j);
+                        Camera::ray_color(&r, max_depth, world)
+                    };
+                    *pixel = self.pixel_samples_scale * (pixel.to_owned() * (samples_per_pixel - 1) as f64 + pixel_color);
+                });
+            });
+    }
+
     pub fn write_image(&self, file: &mut dyn Write, image: &[Vec3]) -> Result<(), Error> {
         let img = self.image_info;
         file.write_all(format!("P3\n{} {}\n255\n", img.image_width, img.image_height).as_bytes())?;
 
         for pixel_color in image {
-            color::write_color(file, &(self.pixel_samples_scale * *pixel_color))?;
+            color::write_color(file, pixel_color)?;
         }
 
         Ok(())
